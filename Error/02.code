@@ -1,5 +1,11 @@
-procedure e02 is
-	object x;
+procedure err2 is
+	procedure A(object r, r ) is
+		integer x;
+		x = r;
+	end
 begin
-	x = 1;
+	object x;
+	x = new object('default', 1);
+	x = 5;
+	begin A(x, x);
 end

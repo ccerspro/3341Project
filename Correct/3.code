@@ -1,6 +1,15 @@
 procedure c3 is
-	integer x;
+	procedure x (object a, b ) is 
+		a = b; 
+	end 
+	object x;
+	object y;
 begin
-	read(x);
+	x = new object('default', 1);
+	y = new object('default', 1);
+	x = 1;
+	y = 2;
+	begin x(x, y);
 	print(x);
+	print(y);
 end

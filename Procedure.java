@@ -1,49 +1,79 @@
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
-class Procedure {
-	String name;
-	DeclSeq ds;
-	StmtSeq ss;
-	
-	void parse() {
-		Parser.expectedToken(Core.PROCEDURE);
-		Parser.scanner.nextToken();
-		Parser.expectedToken(Core.ID);
-		name = Parser.scanner.getId();
-		Parser.scanner.nextToken();
-		Parser.expectedToken(Core.IS);
-		Parser.scanner.nextToken();
-		if (Parser.scanner.currentToken() != Core.BEGIN) {
-			ds = new DeclSeq();
-			ds.parse();
-		}
-		Parser.expectedToken(Core.BEGIN);
-		Parser.scanner.nextToken();
-		ss = new StmtSeq();
-		ss.parse();
-		Parser.expectedToken(Core.END);
-		Parser.scanner.nextToken();
-		Parser.expectedToken(Core.EOS);
-	}
-	
-	void print() {
-		System.out.println("procedure " + name + " is");
-		if (ds != null) {
-			ds.print(1);
-		}
-		System.out.println("begin ");
-		ss.print(1);
-		System.out.println("end");
-	}
-	
-	void execute() {
-		if (ds != null) {
-			Memory.initializeGlobal();
-			ds.execute();
-		}
-		Memory.initializeLocal();
-		Memory.pushScope();
-		ss.execute();
-		Memory.popScope();
-	}
+public class Procedure {
+
+    static String procName;
+    static DeclSeq declSeq;
+    static StmtSeq stmtSeq;
+    Map<String, String> idMap = new HashMap<>();
+
+    Procedure() {}
+
+    void parse(Scanner scanner) {
+        if (scanner.currentToken() != Core.PROCEDURE) {
+            System.out.println("ERROR: expected procedure");
+            System.exit(1);
+        }
+        scanner.nextToken();
+
+        if (scanner.currentToken() != Core.ID) {
+            System.out.println("ERROR: expected procedure name");
+            System.exit(1);
+        }
+        procName = scanner.getId();
+        scanner.nextToken();
+
+        if (scanner.currentToken() != Core.IS) {
+            System.out.println("ERROR: expected is");
+            System.exit(1);
+        }
+        scanner.nextToken();
+
+        if (scanner.currentToken() == Core.INTEGER || scanner.currentToken() == Core.OBJECT || scanner.currentToken() == Core.PROCEDURE) {
+            declSeq = new DeclSeq();
+            declSeq.parse(scanner, idMap);
+        }
+
+        if (scanner.currentToken() != Core.BEGIN) {
+            System.out.println("ERROR: expected begin");
+            System.exit(1);
+        }
+        scanner.nextToken();
+
+        stmtSeq = new StmtSeq();
+        stmtSeq.parse(scanner, idMap);
+
+        if (scanner.currentToken() != Core.END) {
+            System.out.println("ERROR: expected end");
+            System.exit(1);
+        }
+        scanner.nextToken();
+
+        if (scanner.currentToken() != Core.EOS) {
+            System.out.println("ERROR: extra token after end");
+            System.exit(1);
+        }
+    }
+
+    void print() {
+        System.out.println("procedure " + procName + " is");
+        if (declSeq != null) {
+            StmtSeq.increaseIndent();
+            declSeq.print();
+            StmtSeq.decreaseIndent();
+        }
+        System.out.println("begin");
+        StmtSeq.increaseIndent();
+        stmtSeq.print();
+        StmtSeq.decreaseIndent();
+        System.out.println("end");
+    }
+
+    void execute(Scanner data, Map<String, int[]> memory, Map<String, Function> funcMap) {
+        if (declSeq != null) {
+            declSeq.execute(data, memory);
+        }
+        stmtSeq.execute(data, memory, funcMap);
+    }
 }

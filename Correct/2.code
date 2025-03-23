@@ -1,9 +1,11 @@
 procedure c2 is
-	integer x;
-begin
-	if 5 == 5 then
-		print(3);
-	else
-		print(7);
+	procedure A (object r ) is
+		r = 7;
 	end
+	object x;
+begin
+	x = new object('a', 1);
+	x = 1;
+	begin A(x);
+	print(x);
 end

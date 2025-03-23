@@ -1,102 +1,217 @@
-class Assign implements Stmt {
-	// type is
-	// 0 if id := <expr> assignment
-	// 1 if id[string] := <expr> assignment
-	// 2 if "new" assignment
-	// 3 if "alias" assignment
-	int type;
-	// assignTo is the id on the LHS of assignment
-	Id assignTo;
-	// key is the string in the "new" assignment or id[string] assignment
-	String key;
-	// init is the expression in a "new" assignment
-	Expr init;
-	// assignFrom is the id on RHS of "alias" assignment
-	Id assignFrom;
-	// RHS expression in an assignment
-	Expr expr;
-	
-	public void parse() {
-		type=0;
-		assignTo = new Id();
-		assignTo.parse();
-		if (Parser.scanner.currentToken() == Core.LSQUARE) {
-			type = 1;
-			Parser.scanner.nextToken();
-			key = Parser.scanner.getString();
-			Parser.scanner.nextToken();
-			Parser.expectedToken(Core.RSQUARE);
-			Parser.scanner.nextToken();
-		}
-		if (Parser.scanner.currentToken() == Core.ASSIGN) {
-			Parser.scanner.nextToken();
-			if (Parser.scanner.currentToken() == Core.NEW) {
-				// new object assign
-				type = 2;
-				Parser.scanner.nextToken();
-				Parser.expectedToken(Core.OBJECT);
-				Parser.scanner.nextToken();
-				Parser.expectedToken(Core.LPAREN);
-				Parser.scanner.nextToken();
-				Parser.expectedToken(Core.STRING);
-				key = Parser.scanner.getString();
-				Parser.scanner.nextToken();
-				Parser.expectedToken(Core.COMMA);
-				Parser.scanner.nextToken();
-				init = new Expr();
-				init.parse();
-				Parser.expectedToken(Core.RPAREN);
-				Parser.scanner.nextToken();
-			} else {
-				// Expression assign, type will be either 0 or 1
-				expr = new Expr();
-				expr.parse();
-			}
-		} else {
-			// Aliasing assign
-			Parser.expectedToken(Core.COLON);
-			Parser.scanner.nextToken();
-			type = 3;
-			assignFrom = new Id();
-			assignFrom.parse();
-		}
-		Parser.expectedToken(Core.SEMICOLON);
-		Parser.scanner.nextToken();
-	}
-	
-	public void print(int indent) {
-		for (int i=0; i<indent; i++) {
-			System.out.print("\t");
-		}
-		assignTo.print();
-		if (type == 1) {
-			System.out.print("['" + key + "']");
-		}
-		if (type == 0 || type == 1) {
-			System.out.print("=");
-			expr.print();
-		} else if (type == 2) {
-			System.out.print("=new object('" + key + "'");
-			System.out.print(",");
-			init.print();
-			System.out.print(")");
-		} else if (type == 3) {
-			System.out.print(":");
-			assignFrom.print();
-		}
-		System.out.println(";");
-	}
-	
-	public void execute() {
-		if (type == 0) {
-			Memory.store(assignTo.getId(), expr.execute());
-		}
-		else if (type == 1) {
-			Memory.store(assignTo.getId(), key, expr.execute());
-		} else if (type == 2) {
-			Memory.allocate(assignTo.getId(), key, init.execute());
-		} else if (type == 3) {
-			Memory.alias(assignTo.getId(), assignFrom.getId());
-		}
-	}
+import java.util.Map;
+import java.util.HashMap;
+
+public class Assign {
+    String varName;
+    String secondVar;
+    Expr expression;
+    Expr secondExpr;
+    boolean isBrace = false;
+    boolean isNewObject = false;
+    String strValue;
+    boolean isNewInt = false;
+    Map<String, String> typeMap = new HashMap<>();
+    boolean isArray = false;
+
+    Assign() {}
+
+    void parse(Scanner scanner, Map<String, String> idMap) {
+        varName = scanner.getId();
+        if (!idMap.containsKey(varName)) {
+            System.out.println("Semantic Error: variable " + varName + " not declared(assign)");
+            System.exit(1);
+        }
+        
+        typeMap.put(varName, idMap.get(varName));
+        
+        scanner.nextToken();
+        
+        if (scanner.currentToken() == Core.LBRACE) {
+            if (!idMap.get(varName).equals("object")) {
+                System.out.println("ERROR: [string] used with an integer variable");
+                System.exit(1);
+            }
+            isBrace = true;
+            scanner.nextToken();
+            if (scanner.currentToken() != Core.STRING) {
+                System.out.println("ERROR: expected string literal");
+                System.exit(1);
+            }
+            strValue = scanner.getId();
+            scanner.nextToken();
+            if (scanner.currentToken() != Core.RBRACE) {
+                System.out.println("ERROR: expected ]");
+                System.exit(1);
+            }
+            scanner.nextToken();
+        }
+        
+        if (scanner.currentToken() == Core.COLON) {
+            isArray = true;
+            scanner.nextToken();
+            
+            if (scanner.currentToken() != Core.ID) {
+                System.out.println("ERROR: expected identifier after :");
+                System.exit(1);
+            }
+            
+            secondVar = scanner.getId();
+            if (!idMap.containsKey(secondVar)) {
+                System.out.println("ERROR: variable " + secondVar + " not declared");
+                System.exit(1);
+            }
+            
+            scanner.nextToken();
+        } else if (scanner.currentToken() != Core.ASSIGN) {
+            System.out.println("ERROR: expected = or :");
+            System.exit(1);
+        } else {
+            Core nextToken = scanner.nextToken();
+            if (nextToken == Core.EQUAL) {
+                System.out.println("ERROR: equals used in assignment statement");
+                System.exit(1);
+            }
+
+            if (scanner.currentToken() == Core.RPAREN) {
+                System.out.println("ERROR: unmatched ) found without matching ( in assignment");
+                System.exit(1);
+            }
+
+            if (isBrace) {
+                secondExpr = new Expr();
+                secondExpr.parse(scanner, idMap);
+            } else {
+                if (scanner.currentToken() == Core.NEW) {
+                    if (!idMap.get(varName).equals("object")) {
+                        System.out.println("ERROR: integer used in 'new record' declaration");
+                        System.exit(1);
+                    }
+                    isNewObject = true;
+                    scanner.nextToken();
+                    if (scanner.currentToken() != Core.OBJECT) {
+                        System.out.println("ERROR: expected object keyword");
+                        System.exit(1);
+                    }
+                    scanner.nextToken();
+                    if (scanner.currentToken() != Core.LPAREN) {
+                        System.out.println("ERROR: expected (");
+                        System.exit(1);
+                    }
+                    scanner.nextToken();
+                    if (scanner.currentToken() != Core.STRING) {
+                        System.out.println("ERROR: expected string literal");
+                        System.exit(1);
+                    }
+                    strValue = scanner.getId();
+                    scanner.nextToken();
+                    if (scanner.currentToken() != Core.COMMA) {
+                        System.out.println("ERROR: expected ,");
+                        System.exit(1);
+                    }
+                    scanner.nextToken();
+                    expression = new Expr();
+                    expression.parse(scanner, idMap);
+                    if (scanner.currentToken() != Core.RPAREN) {
+                        System.out.println("ERROR: expected )");
+                        System.exit(1);
+                    }
+                    scanner.nextToken();
+                } else {
+                    expression = new Expr();
+                    expression.parse(scanner, idMap);
+                    if (scanner.currentToken() == Core.RPAREN) {
+                        System.out.println("ERROR: unmatched ) found without matching ( in assignment");
+                        System.exit(1);
+                    }
+                }
+            }
+        }
+        
+        if (scanner.currentToken() != Core.SEMICOLON) {
+            System.out.println("ERROR: expected semicolon");
+            System.exit(1);
+        }
+        scanner.nextToken();
+    }
+
+    void print() {
+        if (isBrace) {
+            System.out.print(varName + "['");
+            System.out.print(strValue);
+            System.out.print("'] = ");
+            secondExpr.print();
+            System.out.println(";");
+        } else if (isNewObject) {
+            System.out.print(varName + " = new object('" + strValue + "', ");
+            expression.print();
+            System.out.println(");");
+        } else {
+            System.out.print(varName + " = ");
+            expression.print();
+            System.out.println(";");
+        }
+    }
+
+    void execute(Scanner data, Map<String, int[]> memory) {
+        int[] var = memory.get(varName);
+        String typev = typeMap.get(varName);
+        
+        if (var == null && !typeMap.get(varName).equals("object")) {
+            var = new int[1];
+            memory.put(varName, var);
+        }
+        
+        if (isBrace) {
+            if (secondExpr == null) {
+                System.out.println("Error: assignment expression is null.");
+                System.exit(1);
+            }
+            int value = secondExpr.execute(data, memory);
+            
+            String fieldKey = varName + "['" + strValue + "']";
+            int[] fieldVar = memory.get(fieldKey);
+            if (fieldVar == null) {
+                fieldVar = new int[1];
+                memory.put(fieldKey, fieldVar);
+            }
+            fieldVar[0] = value;
+            
+        } else if (isNewInt) {
+            if (expression == null) {
+                System.out.println("Error: expression is null in new integer array.");
+                System.exit(1);
+            }
+            var = new int[expression.execute(data, memory)];
+        } else if (isArray) {
+            int[] var2 = memory.get(secondVar);
+            if (var2 == null) {
+                var2 = new int[1];
+                memory.put(secondVar, var2);
+            }
+            var = var2;
+        } else if (isNewObject) {
+            var = new int[1];
+            var[0] = 0;  
+            if (expression != null) { 
+                var[0] = expression.execute(data, memory);
+            }
+        } else {
+            if (expression == null) {
+                System.out.println("Error: assignment expression is null.");
+                System.exit(1);
+            }
+            
+            if (typeMap.containsKey(varName) && typeMap.get(varName).equals("object") && var == null) {
+                System.out.println("ERROR: assignment to null object variable");
+                System.exit(1);
+            }
+            
+            if (var == null) {
+                var = new int[1];
+            }
+            
+            var[0] = expression.execute(data, memory);
+        }
+        memory.put(varName, var);
+    }
 }

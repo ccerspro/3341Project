@@ -3,256 +3,209 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 
 class Scanner {
-    String id = "[a-zA-Z][a-zA-Z0-9]*";
-    String constant = "[0-9]|[1-9][0-9]*";
-    BufferedReader in;
-    StringBuilder token;
-    Core t;
+    String idPattern = "[a-zA-Z][a-zA-Z0-9]*";
+    String constantPattern = "[0-9]|[1-9][0-9]*";
+    BufferedReader reader;
+    StringBuilder tokenBuilder;
+    public Core currentToken;
 
-    // Initialize the scanner
     Scanner(String filename) {
         try {
-            this.in = new BufferedReader(new FileReader(filename));
+            this.reader = new BufferedReader(new FileReader(filename));
         } catch (FileNotFoundException e) {
             System.out.println("ERROR: File not found");
-			this.t = Core.ERROR;
         }
-        this.t = this.nextToken();
+        this.currentToken = this.nextToken();
     }
 
-    // Advance to the next token
     public Core nextToken() {
         try {
-            int c = this.in.read();
-            // Skip all the white space
+            int c = this.reader.read();
             while (Character.isWhitespace(c) && c != -1) {
-                c = this.in.read();
+                c = this.reader.read();
             }
-            // Handle the case of end of stream
             if (c == -1) {
-                this.t = Core.EOS;
+                this.currentToken = Core.EOS;
             } else {
                 switch ((char) c) {
-                    // Handle cases of all the special symbols with one character
                     case '+':
-                        this.t = Core.ADD;
+                        this.currentToken = Core.ADD;
                         break;
 
                     case '-':
-                        this.t = Core.SUBTRACT;
+                        this.currentToken = Core.SUBTRACT;
                         break;
 
                     case '*':
-                        this.t = Core.MULTIPLY;
+                        this.currentToken = Core.MULTIPLY;
                         break;
 
                     case '/':
-                        this.t = Core.DIVIDE;
+                        this.currentToken = Core.DIVIDE;
                         break;
-						
-					case ':':
-                        this.t = Core.COLON;
+
+                    case '=':
+                        this.reader.mark(1);
+                        int nextChar = this.reader.read();
+                        if ((char) nextChar == '=') {
+                            this.currentToken = Core.EQUAL;
+                        } else {
+                            this.reader.reset();
+                            this.currentToken = Core.ASSIGN;
+                        }
                         break;
 
                     case '<':
-                        this.t = Core.LESS;
+                        this.currentToken = Core.LESS;
                         break;
-						
-					case ';':
-                        this.t = Core.SEMICOLON;
+
+                    case ';':
+                        this.currentToken = Core.SEMICOLON;
                         break;
 
                     case '.':
-                        this.t = Core.PERIOD;
+                        this.currentToken = Core.PERIOD;
                         break;
 
                     case ',':
-                        this.t = Core.COMMA;
+                        this.currentToken = Core.COMMA;
                         break;
 
                     case '(':
-                        this.t = Core.LPAREN;
-                        break;
-						
-					case ')':
-                        this.t = Core.RPAREN;
-                        break;
-						
-					case '[':
-                        this.t = Core.LSQUARE;
-                        break;
-						
-					case ']':
-                        this.t = Core.RSQUARE;
-                        break;
-						
-					case '{':
-                        this.t = Core.LCURL;
-                        break;
-						
-					case '}':
-                        this.t = Core.RCURL;
+                        this.currentToken = Core.LPAREN;
                         break;
 
-                    // Handle cases of all the special symbols with one or more characters
-					case '=': {
-                        this.in.mark(1);
-                        int nextChar = this.in.read();
-                        if ((char) nextChar == '=') {
-                            this.t = Core.EQUAL;
-                        } else {
-                            this.in.reset();
-                            this.t = Core.ASSIGN;
-                        }
+                    case ')':
+                        this.currentToken = Core.RPAREN;
                         break;
-                    }
-					
-					case '\'': {
-						this.t = Core.STRING;
-						this.token = new StringBuilder();
-                        int nextChar = this.in.read();
-                        while (nextChar != -1 && nextChar != '\'') {
-							this.token.append((char) nextChar);
-							nextChar = this.in.read();
-						}
-						if (nextChar == -1) {
-							System.out.println("ERROR: Ended file with unclosed string!");
-							this.t = Core.ERROR;
-						}
-                        break;
-                    }
 
-					// Handle case of ID, CONST, or keyword
+                    case '[':
+                        this.currentToken = Core.LBRACE;
+                        break;
+
+                    case ']':
+                        this.currentToken = Core.RBRACE;
+                        break;
+
+                    case ':':
+                        this.currentToken = Core.COLON;
+                        break;
+
                     default: {
                         boolean continued = true;
-                        this.token = new StringBuilder();
-                        // if the first character is digit, stop until we hit something non-digit
+                        this.tokenBuilder = new StringBuilder();
                         if (Character.isDigit((char) c)) {
                             while (continued) {
-                                this.token.append((char) c);
-                                this.in.mark(1);
-                                c = this.in.read();
+                                this.tokenBuilder.append((char) c);
+                                this.reader.mark(1);
+                                c = this.reader.read();
                                 continued = c != -1
                                         && Character.isDigit((char) c);
                                 if (!continued) {
-                                    this.in.reset();
+                                    this.reader.reset();
                                 }
                             }
                         }
-                        // if the first character is letter, stop until we hit something non-letter and non-digit
                         else if (Character.isLetter((char) c)) {
                             while (continued) {
-                                this.token.append((char) c);
-                                this.in.mark(1);
-                                c = this.in.read();
+                                this.tokenBuilder.append((char) c);
+                                this.reader.mark(1);
+                                c = this.reader.read();
                                 continued = c != -1
                                         && Character.isLetterOrDigit((char) c);
                                 if (!continued) {
-                                    this.in.reset();
+                                    this.reader.reset();
                                 }
                             }
                         }
-                        // if the first character is not letter, digit, or any special symbol above, stop reading
                         else {
-                            this.token.append((char) c);
+                            this.tokenBuilder.append((char) c);
                         }
 
-                        switch (this.token.toString()) {
-                            // Handle cases of all the keywords
+                        switch (this.tokenBuilder.toString()) {
                             case "and":
-                                this.t = Core.AND;
+                                this.currentToken = Core.AND;
                                 break;
 
                             case "begin":
-                                this.t = Core.BEGIN;
-                                break;
-
-							case "case":
-                                this.t = Core.CASE;
+                                this.currentToken = Core.BEGIN;
                                 break;
 
                             case "do":
-                                this.t = Core.DO;
+                                this.currentToken = Core.DO;
                                 break;
-								
-							case "else":
-                                this.t = Core.ELSE;
+
+                            case "else":
+                                this.currentToken = Core.ELSE;
                                 break;
-								
+
                             case "end":
-                                this.t = Core.END;
+                                this.currentToken = Core.END;
                                 break;
-								
-							case "for":
-                                this.t = Core.FOR;
-                                break;
-								
+
                             case "if":
-                                this.t = Core.IF;
+                                this.currentToken = Core.IF;
                                 break;
-								
-                            case "in":
-                                this.t = Core.IN;
-                                break;
-							
+
                             case "integer":
-                                this.t = Core.INTEGER;
+                                this.currentToken = Core.INTEGER;
                                 break;
 
                             case "is":
-                                this.t = Core.IS;
+                                this.currentToken = Core.IS;
                                 break;
 
                             case "new":
-                                this.t = Core.NEW;
+                                this.currentToken = Core.NEW;
                                 break;
 
                             case "not":
-                                this.t = Core.NOT;
-                                break;
-								
-							case "object":
-                                this.t = Core.OBJECT;
+                                this.currentToken = Core.NOT;
                                 break;
 
                             case "or":
-                                this.t = Core.OR;
+                                this.currentToken = Core.OR;
                                 break;
-								
-							case "print":
-                                this.t = Core.PRINT;
+
+                            case "print":
+                                this.currentToken = Core.PRINT;
                                 break;
 
                             case "procedure":
-                                this.t = Core.PROCEDURE;
-                                break;
-								
-							case "read":
-                                this.t = Core.READ;
+                                this.currentToken = Core.PROCEDURE;
                                 break;
 
-							case "return":
-                                this.t = Core.RETURN;
+                            case "object":
+                                this.currentToken = Core.OBJECT;
+                                break;
+
+                            case "string":
+                                this.currentToken = Core.STRING;
                                 break;
 
                             case "then":
-                                this.t = Core.THEN;
+                                this.currentToken = Core.THEN;
+                                break;
+
+                            case "for":
+                                this.currentToken = Core.FOR;
+                                break;
+
+                            case "read":
+                                this.currentToken = Core.READ;
                                 break;
 
                             default: {
-                                // Handle the case of identifier
-                                if (this.token.toString().matches(this.id)) {
-                                    this.t = Core.ID;
+                                if (this.tokenBuilder.toString().matches(this.idPattern)) {
+                                    this.currentToken = Core.ID;
 
                                 }
-                                // Handle the case of constant less than 256
-                                else if (this.token.toString()
-                                        .matches(this.constant)
+                                else if (this.tokenBuilder.toString()
+                                        .matches(this.constantPattern)
                                         && Integer.parseInt(
-                                                this.token.toString()) <= 1000003) {
-                                    this.t = Core.CONST;
+                                                this.tokenBuilder.toString()) < 100003) {
+                                    this.currentToken = Core.CONST;
                                 }
-                                // Handle cases of all the invalid input including invalid symbols, leading zeros, identifier with digit 0, constant greater than 1000003 and etc.
                                 else {
                                     throw new Exception();
                                 }
@@ -262,30 +215,43 @@ class Scanner {
                         }
                         break;
                     }
+
+                    case '\'': {
+                        this.tokenBuilder = new StringBuilder();
+                        c = this.reader.read();
+                        while (c != -1 && (char)c != '\'') {
+                            this.tokenBuilder.append((char)c);
+                            c = this.reader.read();
+                        }
+                        if (c == -1 || (char)c != '\'') {
+                            throw new Exception();
+                        }
+                        this.currentToken = Core.STRING;
+                        break;
+                    }
                 }
             }
         } catch (Exception e) {
-            System.out.println("ERROR: Invalid input " + this.token.toString());
-            this.t = Core.ERROR;
+            System.out.println("ERROR: Invalid input " + this.tokenBuilder.toString());
+            this.currentToken = Core.ERROR;
         }
-		return this.t;
+        return this.currentToken;
     }
 
-    // Return the current token
     public Core currentToken() {
-        return this.t;
+        return this.currentToken;
     }
 
     public String getId() {
-        return this.token.toString();
+        return this.tokenBuilder.toString();
     }
 
     public int getConst() {
-        return Integer.parseInt(this.token.toString());
+        return Integer.parseInt(this.tokenBuilder.toString());
     }
-	
-	public String getString() {
-        return this.token.toString();
+
+    public void setId(String id) {
+        this.tokenBuilder = new StringBuilder(id);
     }
 
 }

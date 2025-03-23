@@ -1,46 +1,55 @@
-class Term {
-	Factor factor;
-	Term term;
-	int option;
-	
-	void parse() {
-		factor  = new Factor();
-		factor.parse();
-		if (Parser.scanner.currentToken() == Core.MULTIPLY) {
-			option = 1;
-		} else if (Parser.scanner.currentToken() == Core.DIVIDE) {
-			option = 2;
-		}
-		if (option != 0) {
-			Parser.scanner.nextToken();
-			term = new Term();
-			term.parse();
-		}						
-	}
-	
-	void print() {
-		factor.print();
-		if (option == 1) {
-			System.out.print("*");
-			term.print();
-		} else if (option == 2) {
-			System.out.print("/");
-			term.print();
-		}
-	}
-	
-	int execute() {
-		int value = factor.execute();
-		if (option == 1) {
-			value *= term.execute();
-		} else if (option == 2) {
-			int denom = term.execute();
-			if (denom == 0) {
-				System.out.println("ERROR: Division by zero!");
-				System.exit(1);
-			}
-			value /= denom;
-		}
-		return value;
-	}
+import java.util.Map;
+
+public class Term {
+    Factor factor;
+    Term nextTerm;
+    String operation = null;
+
+    Term() {}
+
+    void parse(Scanner scanner, Map<String, String> idMap) {
+        factor = new Factor();
+        factor.parse(scanner, idMap);
+        while (scanner.currentToken() == Core.MULTIPLY || scanner.currentToken() == Core.DIVIDE) {
+            operation = scanner.currentToken() == Core.MULTIPLY ? "*" : "/";
+            scanner.nextToken();
+            
+            if (scanner.currentToken() == Core.MULTIPLY || scanner.currentToken() == Core.DIVIDE) {
+                System.out.println("ERROR: extra " + operation + " in expression");
+                System.exit(1);
+            }
+            
+            if (scanner.currentToken() == Core.RPAREN) {
+                System.out.println("ERROR: unexpected right parenthesis in term");
+                System.exit(1);
+            }
+            nextTerm = new Term();
+            nextTerm.parse(scanner, idMap);
+        }
+    }
+
+    void print(){
+        factor.print();
+        if(operation != null){
+            System.out.print(operation);
+            nextTerm.print();
+        }
+    }
+    
+    int execute(Scanner data, Map<String, int[]> memory) {
+        int rvalue = factor.execute(data, memory);
+        if (operation != null) {
+            int var2 = nextTerm.execute(data, memory);
+            if (operation.equals("*")) {
+                rvalue *= var2;
+            } else if (operation.equals("/")) {
+                if (var2 == 0) {
+                    System.out.println("ERROR: division by zero");
+                    System.exit(1);
+                }
+                rvalue /= var2;
+            }
+        }
+        return rvalue;
+    }
 }
