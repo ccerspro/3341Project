@@ -1,114 +1,120 @@
 import java.util.Map;
 
+/**
+ * Represents a factor in an arithmetic expression.
+ */
 public class Factor {
-    Expr expression;
-    int constant;
-    String varName = null;
-    String strValue;
-    boolean isId = false;
-    boolean isParen = false;
-    boolean isConst = false;
+    private Expr expression;
+    private int constant;
+    private String varName;
+    private String strValue;
+    private boolean isId = false;
+    private boolean isParen = false;
+    private boolean isConst = false;
 
-    Factor() {}
+    public Factor() {}
 
-    void parse(Scanner scanner, Map<String, String> idMap) {
-        if (scanner.currentToken() == Core.RPAREN) {
-            System.out.println("ERROR: unmatched ) found without matching (");
-            System.exit(1);
-        }
-        if(scanner.currentToken() == Core.CONST){
-            isConst = true;
-            constant = scanner.getConst();
-            scanner.nextToken();
-        }else if(scanner.currentToken() == Core.LPAREN){
-            isParen = true;
-            scanner.nextToken();
-            expression = new Expr();
-            expression.parse(scanner, idMap);
-            if(scanner.currentToken() != Core.RPAREN){
-                System.out.println("ERROR: expected )");
-                System.exit(1);
-            }
-            scanner.nextToken();
-        }else if(scanner.currentToken() == Core.ID){
-            isId = true;
-            varName = scanner.getId();
-            if(!idMap.containsKey(varName)){
-                System.out.println("ERROR: variable " + varName + " not declared");
-                System.exit(1);
-            }
-            scanner.nextToken();
-            if(scanner.currentToken() == Core.LBRACE){
-                if(!idMap.get(varName).equals("object")){
-                    System.out.println("ERROR: variable " + varName + " must be of type object");
-                    System.exit(1);
-                }
+    public void parse(Scanner scanner, Map<String, String> idMap) {
+        Core token = scanner.currentToken();
+
+        switch (token) {
+            case CONST:
+                isConst = true;
+                constant = scanner.getConst();
                 scanner.nextToken();
-                if(scanner.currentToken() != Core.STRING){
-                    System.out.println("ERROR: object index must be a string");
-                    System.exit(1);
-                }
-                strValue = scanner.getId();
+                break;
+
+            case LPAREN:
+                isParen = true;
                 scanner.nextToken();
-                if(scanner.currentToken() != Core.RBRACE){
-                    System.out.println("ERROR: expected ]");
-                    System.exit(1);
-                }
+                expression = new Expr();
+                expression.parse(scanner, idMap);
+                expect(scanner, Core.RPAREN, "expected ')'");
                 scanner.nextToken();
-            }
-        }else{
-            System.out.println("ERROR: invalid factor");
-            System.exit(1);
+                break;
+
+            case ID:
+                isId = true;
+                varName = scanner.getId();
+
+                if (!idMap.containsKey(varName)) {
+                    error("variable " + varName + " not declared");
+                }
+
+                scanner.nextToken();
+
+                if (scanner.currentToken() == Core.LBRACE) {
+                    if (!"object".equals(idMap.get(varName))) {
+                        error("variable " + varName + " must be of type object");
+                    }
+                    scanner.nextToken();
+                    expect(scanner, Core.STRING, "expected string index for object");
+                    strValue = scanner.getId();
+                    scanner.nextToken();
+                    expect(scanner, Core.RBRACE, "expected ']'");
+                    scanner.nextToken();
+                }
+                break;
+
+            default:
+                error("invalid factor");
         }
     }
 
-    void print(){
-        if(isId){
-            if(expression != null){
-                System.out.print(varName+"[");
+    public void print() {
+        if (isId) {
+            if (expression != null) {
+                System.out.print(varName + "[");
                 expression.print();
                 System.out.print("]");
-            }else if(strValue != null){
+            } else if (strValue != null) {
                 System.out.print(varName + "['" + strValue + "']");
-            }else{
+            } else {
                 System.out.print(varName);
             }
-        }else if(isParen){
+        } else if (isParen) {
             System.out.print("(");
             expression.print();
             System.out.print(")");
-        }else if(isConst){
+        } else if (isConst) {
             System.out.print(constant);
         }
     }
-    
-    int execute(Scanner data, Map<String, int[]> memory) {
-        int rvalue = 0;
+
+    public int execute(Scanner data, Map<String, int[]> memory) {
         if (isId) {
             int[] var = memory.get(varName);
             if (var == null) {
-                System.out.println("ERROR: variable " + varName + " not initialized");
-                System.exit(1);
+                error("variable " + varName + " not initialized");
             }
-            
+
             if (strValue != null) {
-                String fieldKey = varName + "['" + strValue + "']";
-                int[] fieldVar = memory.get(fieldKey);
-                if (fieldVar == null) {
-                    System.out.println("ERROR: undefined key '" + strValue + "'");
-                    System.exit(1);
+                String key = varName + "['" + strValue + "']";
+                int[] field = memory.get(key);
+                if (field == null) {
+                    error("undefined key '" + strValue + "'");
                 }
-                rvalue = fieldVar[0];
+                return field[0];
             } else if (expression != null) {
-                rvalue = var[expression.execute(data, memory)];
+                return var[expression.execute(data, memory)];
             } else {
-                rvalue = var[0];
+                return var[0];
             }
         } else if (isParen) {
-            rvalue = expression.execute(data, memory);
-        } else if (isConst) {
-            rvalue = constant;
+            return expression.execute(data, memory);
+        } else {
+            return constant;
         }
-        return rvalue;
-    }   
+    }
+
+    private void expect(Scanner scanner, Core expected, String message) {
+        if (scanner.currentToken() != expected) {
+            error(message);
+        }
+    }
+
+    private void error(String message) {
+        System.out.println("ERROR: " + message);
+        System.exit(1);
+    }
 }

@@ -1,69 +1,70 @@
 import java.util.Map;
 
+/**
+ * Represents an arithmetic expression with optional addition or subtraction.
+ */
 public class Expr {
-    Term term;
-    Expr nextExpr;
-    boolean isAdd = false;
-    boolean isSub = false;
+    private Term term;
+    private Expr nextExpr;
+    private boolean isAdd = false;
+    private boolean isSub = false;
 
-    Expr() {}
+    public Expr() {}
 
-    void parse(Scanner scanner, Map<String, String> idMap) {
+    public void parse(Scanner scanner, Map<String, String> idMap) {
         if (scanner.currentToken() == Core.RPAREN) {
-            System.out.println("ERROR: unexpected right parenthesis in expression");
-            System.exit(1);
+            error("unexpected right parenthesis in expression");
         }
-        
+
         term = new Term();
         term.parse(scanner, idMap);
-        
+
         while (scanner.currentToken() == Core.ADD || scanner.currentToken() == Core.SUBTRACT) {
             if (scanner.currentToken() == Core.ADD) {
                 isAdd = true;
             } else {
                 isSub = true;
             }
+
             scanner.nextToken();
-            
-            if (scanner.currentToken() == Core.ADD || scanner.currentToken() == Core.SUBTRACT) {
-                System.out.println("ERROR: extra " + (isAdd ? "+" : "-") + " in expression");
-                System.exit(1);
+
+            Core next = scanner.currentToken();
+            if (next == Core.ADD || next == Core.SUBTRACT || next == Core.RPAREN) {
+                error("extra " + (isAdd ? "+" : "-") + " in expression");
             }
-            
-            if (scanner.currentToken() != Core.ID && 
-                scanner.currentToken() != Core.CONST && 
-                scanner.currentToken() != Core.LPAREN) {
-                System.out.println("ERROR: extra " + (isAdd ? "+" : "-") + " in expression");
-                System.exit(1);
+
+            if (next != Core.ID && next != Core.CONST && next != Core.LPAREN) {
+                error("expected valid token after " + (isAdd ? "+" : "-"));
             }
-            
-            if (scanner.currentToken() == Core.RPAREN) {
-                System.out.println("ERROR: unexpected right parenthesis in expression");
-                System.exit(1);
-            }
+
             nextExpr = new Expr();
             nextExpr.parse(scanner, idMap);
         }
     }
 
-    void print(){
+    public void print() {
         term.print();
-        if(isAdd){
+        if (isAdd) {
             System.out.print("+");
             nextExpr.print();
-        }else if(isSub){
+        } else if (isSub) {
             System.out.print("-");
             nextExpr.print();
         }
     }
 
-    int execute(Scanner data, Map<String, int[]> memory) {
-        int rvalue = term.execute(data, memory);
+    public int execute(Scanner data, Map<String, int[]> memory) {
+        int result = term.execute(data, memory);
         if (isAdd) {
-            rvalue += nextExpr.execute(data, memory);
+            result += nextExpr.execute(data, memory);
         } else if (isSub) {
-            rvalue -= nextExpr.execute(data, memory);
+            result -= nextExpr.execute(data, memory);
         }
-        return rvalue;
+        return result;
+    }
+
+    private void error(String message) {
+        System.out.println("ERROR: " + message);
+        System.exit(1);
     }
 }

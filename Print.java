@@ -1,38 +1,44 @@
 import java.util.Map;
 
+/**
+ * Represents a print statement that outputs an expression's value.
+ */
 public class Print {
-    Expr expression;
-    Print() {}
+    private Expr expression;
 
-    void parse(Scanner scanner, Map<String, String> idMap) {
+    public Print() {}
+
+    public void parse(Scanner scanner, Map<String, String> idMap) {
+        scanner.nextToken(); // consume 'print'
+
+        expect(scanner, Core.LPAREN, "expected '(' after print");
         scanner.nextToken();
-        if(scanner.currentToken() != Core.LPAREN){
-            System.out.println("ERROR: expected (");
-            System.exit(1);
-        }
-        scanner.nextToken();
+
         expression = new Expr();
         expression.parse(scanner, idMap);
-        if(scanner.currentToken() != Core.RPAREN){
-            System.out.println("ERROR: expected )");
-            System.exit(1);
-        }
+
+        expect(scanner, Core.RPAREN, "expected ')' after expression");
         scanner.nextToken();
-        if(scanner.currentToken() != Core.SEMICOLON){
-            System.out.println("ERROR: expected semicolon in print statement");
-            System.exit(1);
-        }
+
+        expect(scanner, Core.SEMICOLON, "expected semicolon in print statement");
         scanner.nextToken();
     }
 
-    void print(){
+    public void print() {
         System.out.print("print(");
         expression.print();
         System.out.println(");");
     }
 
-    void execute(Scanner data, Map<String, int[]> memory) {
+    public void execute(Scanner data, Map<String, int[]> memory) {
         int value = expression.execute(data, memory);
         System.out.println(value);
+    }
+
+    private void expect(Scanner scanner, Core expected, String message) {
+        if (scanner.currentToken() != expected) {
+            System.out.println("ERROR: " + message);
+            System.exit(1);
+        }
     }
 }
