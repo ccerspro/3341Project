@@ -1,61 +1,67 @@
 import java.util.Map;
 
+/**
+ * Cmpr represents a comparison expression such as a == b or a < b.
+ */
 public class Cmpr {
-    Expr leftExpr;
-    Expr rightExpr;
-    String operator;
+    private Expr leftExpr;
+    private Expr rightExpr;
+    private String operator;
 
-    Cmpr() {}
+    public Cmpr() {}
 
-    void parse(Scanner scanner, Map<String, String> idMap) {
+    public void parse(Scanner scanner, Map<String, String> idMap) {
         leftExpr = new Expr();
         leftExpr.parse(scanner, idMap);
-        if(scanner.currentToken() == Core.EQUAL){
+
+        if (scanner.currentToken() == Core.EQUAL) {
             scanner.nextToken();
-            if(scanner.currentToken() == Core.EQUAL){
+
+            if (scanner.currentToken() == Core.EQUAL) {
                 operator = "==";
                 scanner.nextToken();
-                if(scanner.currentToken() == Core.ID || scanner.currentToken() == Core.CONST || scanner.currentToken() == Core.LPAREN){
-                    rightExpr = new Expr();
-                    rightExpr.parse(scanner, idMap);
-                }else{
-                    System.out.println("ERROR: expected expression after ==");
-                    System.exit(1);
-                }
-            }else{
-                System.out.println("ERROR: expected ==");
-                System.exit(1);
+                parseRightExpression(scanner, idMap, "==");
+            } else {
+                error("expected '=='");
             }
-        }else if(scanner.currentToken() == Core.LESS){
+
+        } else if (scanner.currentToken() == Core.LESS) {
             operator = "<";
             scanner.nextToken();
-            if(scanner.currentToken() == Core.ID || scanner.currentToken() == Core.CONST || scanner.currentToken() == Core.LPAREN){
-                rightExpr = new Expr();
-                rightExpr.parse(scanner, idMap);
-            }else{
-                System.out.println("ERROR: expected expression after <");
-                System.exit(1);
-            }
-        }else{
-            System.out.println("ERROR: expected comparison operator");
-            System.exit(1);
+            parseRightExpression(scanner, idMap, "<");
+
+        } else {
+            error("expected comparison operator ('==' or '<')");
         }
     }
 
-    void print(){
+    private void parseRightExpression(Scanner scanner, Map<String, String> idMap, String op) {
+        if (isValidExprStart(scanner.currentToken())) {
+            rightExpr = new Expr();
+            rightExpr.parse(scanner, idMap);
+        } else {
+            error("expected expression after " + op);
+        }
+    }
+
+    private boolean isValidExprStart(Core token) {
+        return token == Core.ID || token == Core.CONST || token == Core.LPAREN;
+    }
+
+    public void print() {
         leftExpr.print();
         System.out.print(" " + operator + " ");
         rightExpr.print();
-    }   
+    }
 
-    boolean execute(Scanner data, Map<String, int[]> memory) {
-        int left = leftExpr.execute(data, memory);
-        int right = rightExpr.execute(data, memory);
-        if (operator.equals("==")) {
-            return left == right;
-        } else if (operator.equals("<")) {
-            return left < right;
-        }
-        return false;
+    public boolean execute(Scanner data, Map<String, int[]> memory) {
+        int leftValue = leftExpr.execute(data, memory);
+        int rightValue = rightExpr.execute(data, memory);
+        return operator.equals("==") ? leftValue == rightValue : leftValue < rightValue;
+    }
+
+    private void error(String message) {
+        System.out.println("ERROR: " + message);
+        System.exit(1);
     }
 }

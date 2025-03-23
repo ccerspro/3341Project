@@ -2,34 +2,45 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 
+/**
+ * CallStack provides a static stack-based mechanism to manage execution frames.
+ * Each frame is a mapping of variable names to their associated memory blocks (int arrays).
+ */
 public class CallStack {
-    private static Stack<Map<String, int[]>> frames = new Stack<>();
+    private static final Stack<Map<String, int[]>> frameStack = new Stack<>();
+
     
     public static void pushFrame(Map<String, int[]> frame) {
-        frames.push(new HashMap<>(frame));
+        frameStack.push(new HashMap<>(frame));
     }
+
     
     public static Map<String, int[]> popFrame() {
-        if (frames.isEmpty()) {
-            System.out.println("ERROR: Call stack is empty");
-            System.exit(1);
-        }
-        return frames.pop();
+        validateStackNotEmpty("pop");
+        return frameStack.pop();
     }
+
     
     public static Map<String, int[]> peekFrame() {
-        if (frames.isEmpty()) {
-            System.out.println("ERROR: Call stack is empty");
-            System.exit(1);
-        }
-        return frames.peek();
+        validateStackNotEmpty("peek");
+        return frameStack.peek();
     }
+
     
     public static boolean isEmpty() {
-        return frames.isEmpty();
+        return frameStack.isEmpty();
     }
+
     
     public static void clear() {
-        frames.clear();
+        frameStack.clear();
+    }
+
+    
+    private static void validateStackNotEmpty(String operationName) {
+        if (frameStack.isEmpty()) {
+            System.out.println("ERROR: Attempted to " + operationName + " from an empty call stack");
+            System.exit(1);
+        }
     }
 }
