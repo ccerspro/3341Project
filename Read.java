@@ -1,57 +1,64 @@
 import java.util.Map;
 
+/**
+ * Handles reading a constant from input and assigning to a variable.
+ */
 public class Read {
-    String varName;
-    Read() {}
+    private String varName;
 
-    void parse(Scanner scanner, Map<String, String> idMap) {
+    public Read() {}
+
+    public void parse(Scanner scanner, Map<String, String> idMap) {
+        scanner.nextToken(); // consume 'read'
+
+        expect(scanner, Core.LPAREN, "expected '(' after 'read'");
         scanner.nextToken();
-        if(scanner.currentToken() != Core.LPAREN){
-            System.out.println("ERROR: expected (");
-            System.exit(1);
-        }
-        scanner.nextToken();
-        if(scanner.currentToken() != Core.ID){
-            System.out.println("ERROR: expected identifier");
-            System.exit(1);
-        }
+
+        expect(scanner, Core.ID, "expected identifier");
         varName = scanner.getId();
-        if(!idMap.containsKey(varName)){
-            System.out.println("ERROR: variable " + varName + " not declared");
-            System.exit(1);
+
+        if (!idMap.containsKey(varName)) {
+            error("variable " + varName + " not declared");
         }
         scanner.nextToken();
-        if(scanner.currentToken() != Core.RPAREN){
-            System.out.println("ERROR: expected )");
-            System.exit(1);
-        }
+
+        expect(scanner, Core.RPAREN, "expected ')'");
         scanner.nextToken();
-        if(scanner.currentToken() != Core.SEMICOLON){
-            System.out.println("ERROR: expected semicolon in read statement");
-            System.exit(1);
-        }
+
+        expect(scanner, Core.SEMICOLON, "expected ';' at end of read statement");
         scanner.nextToken();
     }
 
-    void print(){
+    public void print() {
         System.out.println("read(" + varName + ");");
     }
 
-    void execute(Scanner data, Map<String, int[]> memory) {
+    public void execute(Scanner data, Map<String, int[]> memory) {
         if (data.currentToken() != Core.CONST) {
             if (data.currentToken() == Core.EOS) {
-                System.out.println("ERROR: not enough values in data file");
+                error("not enough values in data file");
             } else {
-                System.out.println("ERROR: expected constant in data file");
+                error("expected constant in data file");
             }
-            System.exit(1);
         }
+
         int[] var = memory.get(varName);
         if (var == null) {
-            System.out.println("ERROR: variable " + varName + " not initialized");
-            System.exit(1);
+            error("variable " + varName + " not initialized");
         }
+
         var[0] = data.getConst();
         data.nextToken();
+    }
+
+    private void expect(Scanner scanner, Core expected, String message) {
+        if (scanner.currentToken() != expected) {
+            error(message);
+        }
+    }
+
+    private void error(String message) {
+        System.out.println("ERROR: " + message);
+        System.exit(1);
     }
 }

@@ -1,33 +1,27 @@
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Represents the main entry procedure of a program.
+ */
 public class Procedure {
+    private static String procName;
+    private static DeclSeq declSeq;
+    private static StmtSeq stmtSeq;
 
-    static String procName;
-    static DeclSeq declSeq;
-    static StmtSeq stmtSeq;
-    Map<String, String> idMap = new HashMap<>();
+    private final Map<String, String> idMap = new HashMap<>();
 
-    Procedure() {}
+    public Procedure() {}
 
-    void parse(Scanner scanner) {
-        if (scanner.currentToken() != Core.PROCEDURE) {
-            System.out.println("ERROR: expected procedure");
-            System.exit(1);
-        }
+    public void parse(Scanner scanner) {
+        expect(scanner, Core.PROCEDURE, "expected 'procedure'");
         scanner.nextToken();
 
-        if (scanner.currentToken() != Core.ID) {
-            System.out.println("ERROR: expected procedure name");
-            System.exit(1);
-        }
+        expect(scanner, Core.ID, "expected procedure name");
         procName = scanner.getId();
         scanner.nextToken();
 
-        if (scanner.currentToken() != Core.IS) {
-            System.out.println("ERROR: expected is");
-            System.exit(1);
-        }
+        expect(scanner, Core.IS, "expected 'is'");
         scanner.nextToken();
 
         if (scanner.currentToken() == Core.INTEGER || scanner.currentToken() == Core.OBJECT || scanner.currentToken() == Core.PROCEDURE) {
@@ -35,28 +29,21 @@ public class Procedure {
             declSeq.parse(scanner, idMap);
         }
 
-        if (scanner.currentToken() != Core.BEGIN) {
-            System.out.println("ERROR: expected begin");
-            System.exit(1);
-        }
+        expect(scanner, Core.BEGIN, "expected 'begin'");
         scanner.nextToken();
 
         stmtSeq = new StmtSeq();
         stmtSeq.parse(scanner, idMap);
 
-        if (scanner.currentToken() != Core.END) {
-            System.out.println("ERROR: expected end");
-            System.exit(1);
-        }
+        expect(scanner, Core.END, "expected 'end'");
         scanner.nextToken();
 
         if (scanner.currentToken() != Core.EOS) {
-            System.out.println("ERROR: extra token after end");
-            System.exit(1);
+            error("extra token after 'end'");
         }
     }
 
-    void print() {
+    public void print() {
         System.out.println("procedure " + procName + " is");
         if (declSeq != null) {
             StmtSeq.increaseIndent();
@@ -70,10 +57,21 @@ public class Procedure {
         System.out.println("end");
     }
 
-    void execute(Scanner data, Map<String, int[]> memory, Map<String, Function> funcMap) {
+    public void execute(Scanner data, Map<String, int[]> memory, Map<String, Function> funcMap) {
         if (declSeq != null) {
             declSeq.execute(data, memory);
         }
         stmtSeq.execute(data, memory, funcMap);
+    }
+
+    private void expect(Scanner scanner, Core expected, String msg) {
+        if (scanner.currentToken() != expected) {
+            error(msg);
+        }
+    }
+
+    private void error(String msg) {
+        System.out.println("ERROR: " + msg);
+        System.exit(1);
     }
 }
