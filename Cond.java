@@ -1,11 +1,14 @@
 import java.util.Map;
 
 /**
- * Cond represents a conditional expression that supports
- * negation, comparison, and boolean connectors (and/or).
+ * Represents a condition with optional logical connectors (and/or) and NOT.
+ * Includes direct comparison functionality (was previously in Cmpr).
  */
 public class Cond {
-    private Cmpr comparison;
+    private Expr leftExpr;
+    private Expr rightExpr;
+    private String operator; // "==" or "<"
+
     private Cond nextCond;
     private boolean isNot = false;
     private String connector = null;
@@ -13,80 +16,74 @@ public class Cond {
     private boolean hasBrackets = false;
 
     public Cond() {}
-
     public Cond(boolean useBrackets) {
         this.useBrackets = useBrackets;
     }
 
     public void parse(Scanner scanner, Map<String, String> idMap) {
-        Core token = scanner.currentToken();
-
-        if (token == Core.NOT) {
+        if (scanner.currentToken() == Core.NOT) {
             isNot = true;
             scanner.nextToken();
-            validateConditionStart(scanner);
             nextCond = new Cond(useBrackets);
             nextCond.parse(scanner, idMap);
+            return;
+        }
 
-        } else if (token == Core.LBRACE) {
+        if (scanner.currentToken() == Core.LBRACE) {
             hasBrackets = true;
             scanner.nextToken();
-
-            comparison = new Cmpr();
-            comparison.parse(scanner, idMap);
-
-            if (scanner.currentToken() != Core.RBRACE) {
-                error("expected ']'");
-            }
-            scanner.nextToken();
-
-        } else {
-            comparison = new Cmpr();
-            comparison.parse(scanner, idMap);
-            parseConnector(scanner, idMap);
         }
-    }
 
-    private void parseConnector(Scanner scanner, Map<String, String> idMap) {
-        Core token = scanner.currentToken();
+        parseComparison(scanner, idMap);
 
-        if (token == Core.OR || token == Core.AND) {
-            connector = token == Core.OR ? "or" : "and";
+        if (hasBrackets) {
+            expect(scanner, Core.RBRACE, "expected ']'");
             scanner.nextToken();
+        }
 
-            validateConditionStart(scanner);
+        if (scanner.currentToken() == Core.OR || scanner.currentToken() == Core.AND) {
+            connector = (scanner.currentToken() == Core.OR) ? "or" : "and";
+            scanner.nextToken();
             nextCond = new Cond(useBrackets);
             nextCond.parse(scanner, idMap);
         }
     }
 
-    private void validateConditionStart(Scanner scanner) {
-        Core token = scanner.currentToken();
-        if (!(token == Core.ID || token == Core.CONST || token == Core.LPAREN ||
-              token == Core.NOT || token == Core.LBRACE)) {
-            error("invalid condition start after operator");
+    private void parseComparison(Scanner scanner, Map<String, String> idMap) {
+        leftExpr = new Expr();
+        leftExpr.parse(scanner, idMap);
+
+        if (scanner.currentToken() == Core.EQUAL) {
+            scanner.nextToken();
+            expect(scanner, Core.EQUAL, "expected '=='");
+            operator = "==";
+            scanner.nextToken();
+        } else if (scanner.currentToken() == Core.LESS) {
+            operator = "<";
+            scanner.nextToken();
+        } else {
+            error("expected comparison operator (== or <)");
         }
+
+        rightExpr = new Expr();
+        rightExpr.parse(scanner, idMap);
     }
 
     public void print() {
         if (isNot) {
             System.out.print("not ");
             nextCond.print();
+        } else {
+            if (useBrackets && hasBrackets) System.out.print("[");
+            leftExpr.print();
+            System.out.print(" " + operator + " ");
+            rightExpr.print();
+            if (useBrackets && hasBrackets) System.out.print("]");
+        }
 
-        } else if (comparison != null) {
-            if (connector == null) {
-                if (useBrackets && hasBrackets) {
-                    System.out.print("[");
-                }
-                comparison.print();
-                if (useBrackets && hasBrackets) {
-                    System.out.print("]");
-                }
-            } else {
-                comparison.print();
-                System.out.print(" " + connector + " ");
-                nextCond.print();
-            }
+        if (connector != null) {
+            System.out.print(" " + connector + " ");
+            nextCond.print();
         }
     }
 
@@ -95,18 +92,25 @@ public class Cond {
 
         if (isNot) {
             result = !nextCond.execute(data, memory);
-        } else if (comparison != null) {
-            result = comparison.execute(data, memory);
-
-            if (connector != null) {
-                boolean nextResult = nextCond.execute(data, memory);
-                result = connector.equals("or") ? result || nextResult : result && nextResult;
-            }
         } else {
-            result = nextCond.execute(data, memory);
+            int left = leftExpr.execute(data, memory);
+            int right = rightExpr.execute(data, memory);
+            result = operator.equals("==") ? (left == right) : (left < right);
+        }
+
+        if (connector != null) {
+            boolean nextResult = nextCond.execute(data, memory);
+            if (connector.equals("or")) result = result || nextResult;
+            else result = result && nextResult;
         }
 
         return result;
+    }
+
+    private void expect(Scanner scanner, Core expected, String message) {
+        if (scanner.currentToken() != expected) {
+            error(message);
+        }
     }
 
     private void error(String message) {
